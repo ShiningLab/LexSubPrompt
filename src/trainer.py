@@ -8,7 +8,6 @@ __email__ = 'Email'
 # public
 import lightning.pytorch as pl
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, RichProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 # private
