@@ -25,6 +25,12 @@ class DataModule(pl.LightningDataModule):
                 self.val_dataset = LSPDataset('val', self.config)
                 self.config.train_size = len(self.train_dataset)
                 self.config.val_size = len(self.val_dataset)
+            case 'validate':
+                self.val_dataset = LSPDataset('val', self.config)
+                self.config.val_size = len(self.val_dataset)
+            case 'predict':
+                self.predict_dataset = LSPDataset('test', self.config)
+                self.config.predict_size = len(self.predict_dataset)
             case _:
                 raise NotImplementedError
 
@@ -44,6 +50,17 @@ class DataModule(pl.LightningDataModule):
             self.val_dataset
             , batch_size=self.config.eval_batch_size
             , collate_fn=self.val_dataset.collate_fn
+            , shuffle=False
+            , num_workers=self.config.num_workers
+            , pin_memory=True
+            , drop_last=False
+            )
+
+    def predict_dataloader(self):
+        return DataLoader(
+            self.predict_dataset
+            , batch_size=self.config.eval_batch_size
+            , collate_fn=self.predict_dataset.collate_fn
             , shuffle=False
             , num_workers=self.config.num_workers
             , pin_memory=True

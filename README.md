@@ -5,6 +5,5 @@ This repository is for the project Learning Lexical Substitution via Prompts
 + python >= 3.10.10
 + torch
 + wandb
-+ pandas
 + lightning
 + transformers

@@ -7,6 +7,8 @@ __email__ = 'Email'
 # dependency
 # built-in
 import sys, pickle, logging
+# public
+from transformers import AutoModelForPreTraining, GPTNeoForCausalLM
 
 
 def save_pickle(obj, path):
@@ -47,3 +49,19 @@ def init_logger(config):
         )
     logger = logging.getLogger(__name__)
     return logger
+
+def flatten_list(regular_list: list) -> list:
+    return [item for sublist in regular_list for item in sublist]
+
+def get_model(config):
+    # gpt-neo-125m, gpt-neo-350m
+    if 'neo' in config.model:
+        return GPTNeoForCausalLM.from_pretrained(
+            config.LM_PATH
+            )
+    else:
+        return AutoModelForPreTraining.from_pretrained(
+            config.LM_PATH
+            , scale_attn_by_inverse_layer_idx=True
+            , reorder_and_upcast_attn=True
+            )

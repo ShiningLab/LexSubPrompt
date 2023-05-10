@@ -35,22 +35,22 @@ class LitTrainer(object):
         # datamodule
         self.dm = DataModule(self.config)
         # callbacks
-        filename = '{epoch}-{step}-{val_loss:.2f}'
+        filename = '{epoch}-{step}-{val_p1:.4f}'
         checkpoint_callback = ModelCheckpoint(
             dirpath=self.config.CKPT_PATH
             , filename=filename
-            , monitor='val_loss'
-            , mode='min'
+            , monitor='val_p1'
+            , mode='max'
             , verbose=True
             , save_last=True
             , save_top_k=1
             )
         early_stop_callback = EarlyStopping(
-            monitor='val_loss'
+            monitor='val_p1'
             , min_delta=.0
             , patience=self.config.patience
             , verbose=True
-            , mode='min'
+            , mode='max'
             )
         # logger
         self.logger = helper.init_logger(self.config)
@@ -74,6 +74,7 @@ class LitTrainer(object):
             , val_check_interval=self.config.val_check_interval
             , enable_checkpointing=True
             , enable_progress_bar=True
+            , gradient_clip_val=self.config.gradient_clip_val
             , deterministic=True
             , inference_mode=True
             , profiler=self.config.profiler if self.config.profiler else None
@@ -91,3 +92,19 @@ class LitTrainer(object):
             , ckpt_path= 'last' if self.config.load_ckpt else None
             )
         self.logger.info('Done.')
+
+    def validate(self, ckpt_path=None):
+        self.trainer.validate(
+            model=self.model
+            , datamodule=self.dm
+            , ckpt_path=ckpt_path
+            , verbose=True
+            )
+
+    # def test(self, ckpt_path=None):
+    #     self.trainer.test(
+    #         model=self.model
+    #         , datamodule=self.dm
+    #         , ckpt_path=ckpt_path
+    #         , verbose=True
+    #         )

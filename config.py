@@ -19,26 +19,32 @@ def init_args():
     parser.add_argument('--data', type=str, default='genesis')
     # model
     parser.add_argument('--max_length', type=int, default=1024)
+    # gpt2, gpt2-medium, gpt2-large
+    # gpt-neo-125m, gpt-neo-350m
     parser.add_argument('--model', type=str, default='gpt2')
     parser.add_argument('--load_ckpt', type=helper.str2bool, default=False)
     # training
     parser.add_argument('--train_batch_size', type=int, default=32)
     parser.add_argument('--eval_batch_size', type=int, default=64)
+    parser.add_argument('--warmup_epoch', type=int, default=12)
     parser.add_argument('--max_epochs', type=int, default=-1)  # to enable infinite training
     parser.add_argument('--num_workers', type=int, default=8)
-    parser.add_argument("--learning_rate", type=float, default=1e-5)
-    parser.add_argument("--weight_decay", type=float, default=0.0)
+    parser.add_argument("--learning_rate", type=float, default=5e-5)
+    parser.add_argument("--weight_decay", type=float, default=0.001)
     parser.add_argument("--adam_epsilon", type=float, default=1e-8)
+    parser.add_argument("--gradient_clip_val", type=float, default=1.0)
     # evaluation
     parser.add_argument('--patience', type=int, default=6)
     parser.add_argument("--val_check_interval", type=float, default=1.0)
+    parser.add_argument('--max_new_tokens', type=int, default=8)
+    parser.add_argument('--num_beams', type=int, default=10)
     # trainer
     # (str, optional) Can be 'simple' or 'advanced'. Defaults to ''.
     parser.add_argument('--profiler', type=str, default='')
     # logger
-    parser.add_argument('--offline', type=helper.str2bool, default=True) # True for development
+    parser.add_argument('--offline', type=helper.str2bool, default=False) # True for development
     # (str, optional) Can be 'online', 'offline' or 'disabled'. Defaults to online.
-    parser.add_argument('--wandb_mode', type=str, default='disabled')  # disabled for testing code
+    parser.add_argument('--wandb_mode', type=str, default='online')  # disabled for testing code
     parser.add_argument('--log_model', type=helper.str2bool, default=False)
     # save as argparse space
     return parser.parse_known_args()[0]
