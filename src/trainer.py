@@ -5,6 +5,8 @@ __email__ = 'Email'
 
 
 # dependency
+# built-in
+import os
 # public
 import lightning.pytorch as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -12,7 +14,8 @@ from lightning.pytorch.callbacks import ModelCheckpoint, RichProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 # private
 from src import helper
-from src.models import LM
+from src.eval import Evaluator
+from src.models import LSP
 from src.datamodule import DataModule
 
 
@@ -31,7 +34,7 @@ class LitTrainer(object):
 
     def initialize(self):
         # model
-        self.model = LM(self.config)
+        self.model = LSP(self.config)
         # datamodule
         self.dm = DataModule(self.config)
         # callbacks
@@ -68,8 +71,10 @@ class LitTrainer(object):
         self.wandb_logger.experiment.config.update(self.config)
         # trainer
         self.trainer = pl.Trainer(
-            logger = self.wandb_logger
+            accelerator=self.config.accelerator
+            , logger = self.wandb_logger
             , callbacks=[checkpoint_callback, early_stop_callback, RichProgressBar()]
+            , fast_dev_run=self.config.fast_dev_run
             , max_epochs=self.config.max_epochs
             , val_check_interval=self.config.val_check_interval
             , enable_checkpointing=True
@@ -91,6 +96,17 @@ class LitTrainer(object):
             , datamodule=self.dm
             , ckpt_path= 'last' if self.config.load_ckpt else None
             )
+        # testing
+        self.logger.info("Start testing...")
+        predict_dict = self.predict(ckpt_path='best')
+        # evaluation
+        eva = Evaluator(predict_dict)
+        self.logger.info(eva.info)
+        # save results
+        helper.save_pickle(predict_dict, self.config.RESULTS_PKL)
+        self.logger.info('Results saved as {}.'.format(self.config.RESULTS_PKL))
+        # upload to wandb
+        self.update_wandb(predict_dict)
         self.logger.info('Done.')
 
     def validate(self, ckpt_path=None):
@@ -101,10 +117,39 @@ class LitTrainer(object):
             , verbose=True
             )
 
-    # def test(self, ckpt_path=None):
-    #     self.trainer.test(
-    #         model=self.model
-    #         , datamodule=self.dm
-    #         , ckpt_path=ckpt_path
-    #         , verbose=True
-    #         )
+    def predict(self, ckpt_path=None):
+        # list of dict
+        outputs_list = self.trainer.predict(
+            model=self.model
+            , datamodule=self.dm
+            , ckpt_path=ckpt_path
+            , return_predictions=True
+            )
+        # formatting
+        outputs_dict = dict()
+        for k in outputs_list[0]:
+            outputs_dict[k] = [d[k] for d in outputs_list]
+        # postprocessing
+        self.logger.info("Start postprocessing...")
+        outputs_dict['clean_subs_'] = helper.postprocess(outputs_dict)
+        # ranking
+        self.logger.info("Start ranking...")
+        outputs_dict['rank_subs_'] = helper.rank(outputs_dict, self.config)
+        return outputs_dict
+
+    def update_wandb(self, predict_dict):
+        for k in predict_dict:
+            dtype = type(predict_dict[k][0])
+            if dtype == str:
+                pass
+            elif dtype == int:
+                predict_dict[k] = [str(v) for v in predict_dict[k]]
+            elif dtype == list:
+                predict_dict[k] = [','.join(v) for v in predict_dict[k]]
+            else:
+                raise NotImplementedError
+        self.wandb_logger.log_text(
+            key='test'
+            , columns=list(predict_dict.keys())
+            , data=[[predict_dict[k][i] for k in predict_dict] for i in range(self.config.predict_size)]
+            )

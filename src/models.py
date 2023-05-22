@@ -15,16 +15,17 @@ from src import helper
 from src.eval import overall_precision_at_k
 
 
-class LM(pl.LightningModule):
-    """docstring for LM"""
+class LSP(pl.LightningModule):
+    """docstring for LSP"""
     def __init__(self, config, **kwargs):
-        super(LM, self).__init__()
+        super(LSP, self).__init__()
         self.config = config
         self.update_config(**kwargs)
-        self.tokenizer = AutoTokenizer.from_pretrained(config.LM_PATH)
+        self.tokenizer = AutoTokenizer.from_pretrained(config.MODEL_PATH)
         self.model = helper.get_model(config)
         self.train_loss, self.val_loss = [], []
-        self.val_xs, self.val_ys, self.val_subs, self.val_ys_, self.val_subs_= [], [], [], [], []
+        self.val_subs, self.val_subs_= [], []
+        self.test_subs, self.test_subs_= [], []
         self.save_hyperparameters()
 
     def update_config(self, **kwargs):
@@ -32,9 +33,23 @@ class LM(pl.LightningModule):
         for k,v in kwargs.items():
             setattr(self.config, k, v)
 
-    # def postprocess(self, logits):
-    #     ys_ = logits.softmax(dim=-1).argmax(dim=-1)
-    #     return self.tokenizer.batch_decode(ys_, skip_special_tokens=True)
+    def generate(self, xs, num_beams, num_return_sequences, raw_xs=None):
+        if raw_xs:
+            bad_words_ids = [self.tokenizer(raw_xs[0].split('"')[1], add_special_tokens=False).input_ids]
+        else:
+            bad_words_ids = None
+        ys_ = self.model.generate(
+            **xs
+            , max_new_tokens=self.config.max_new_tokens
+            , num_beams=num_beams
+            , num_beam_groups=1
+            , early_stopping=True
+            , num_return_sequences=num_return_sequences
+            , pad_token_id=self.tokenizer.eos_token_id
+            , bad_words_ids = bad_words_ids if bad_words_ids else None
+        )
+        ys_ = self.tokenizer.batch_decode(ys_, skip_special_tokens=True)
+        return ys_
 
     def lm2lexsub(self, sents):
         subs = []
@@ -47,8 +62,7 @@ class LM(pl.LightningModule):
         return subs
 
     def training_step(self, batch, batch_idx):
-        # raw_xs, raw_ys, subs, xs, ys, labels
-        _, _, _, _, ys, labels = batch
+        ys, labels = batch
         loss = self.model(**ys, labels=labels).loss
         self.train_loss.append(loss.item())
         self.log('train_step_loss', loss.item(), prog_bar=True)
@@ -60,24 +74,12 @@ class LM(pl.LightningModule):
         self.train_loss = []
 
     def validation_step(self, batch, batch_idx):
-        # raw_xs, raw_ys, subs, xs, ys, labels
-        raw_xs, raw_ys, subs, xs, ys, labels = batch
+        ys, labels, xs, subs = batch
         # loss
         loss = self.model(**ys, labels=labels).loss.item()
         self.val_loss.append(loss)
         # generate
-        ys_ = self.model.generate(
-            **xs
-            , max_new_tokens=self.config.max_new_tokens
-            , pad_token_id=self.tokenizer.eos_token_id
-            , num_beams=1
-            , num_beam_groups=1
-            , early_stopping=True
-            , num_return_sequences=1
-            )
-        ys_ = self.tokenizer.batch_decode(ys_, skip_special_tokens=True)
-        self.val_xs += raw_xs
-        self.val_ys += raw_ys
+        ys_ = self.generate(xs, num_beams=1, num_return_sequences=1)
         subs_ = self.lm2lexsub(ys_)
         self.val_subs += subs  # list[list[str]]
         self.val_subs_ += [[s] for s in subs_]  # list[str] -> list[list[str]]
@@ -86,28 +88,26 @@ class LM(pl.LightningModule):
         loss = np.mean(self.val_loss, dtype='float32')
         p1 = overall_precision_at_k(self.val_subs, self.val_subs_, 1)
         self.log_dict({'val_epoch_loss': loss, 'val_p1': p1})
-        columns = ['xs', 'ys', 'subs', 'ys_', 'subs_']
-        data = list(map(list, zip(self.val_xs, self.val_ys, self.val_subs, self.val_ys_, self.val_subs_)))
-        self.logger.log_text(key='val', columns=columns, data=data)
-        self.val_loss, self.val_xs, self.val_ys, self.val_subs, self.val_ys_, self.val_subs_= [], [], [], [], [], []
+        self.val_loss, self.val_subs, self.val_subs_= [], [], []
 
-    # def predict_step(self, batch, batch_idx):
-    #     # raw_xs, raw_ys, xs, ys, labels
-    #     raw_xs, raw_ys, xs, ys, _ = batch
-    #     bad_words_ids = [self.tokenizer(x.split('"')[1], add_special_tokens=False).input_ids for x in raw_xs]
-    #     ys_ = self.model.generate(
-    #         **xs
-    #         , max_new_tokens=8
-    #         # , num_beams=15
-    #         # , early_stopping=True
-    #         # , num_return_sequences=10
-    #         , pad_token_id=self.tokenizer.eos_token_id
-    #         , bad_words_ids = bad_words_ids
-    #         )
-    #     ys_ = self.tokenizer.batch_decode(ys_, skip_special_tokens=True)
-    #     subs = self.lm2lexsub(raw_ys)
-    #     subs_ = self.lm2lexsub(ys_)
-    #     return {'raw_xs': raw_xs, 'raw_ys': raw_ys, 'ys_': ys_, 'subs': subs, 'subs_': subs_}
+    def predict_step(self, batch, batch_idx):
+        raw_xs, xs, tgts, poss, ps, ctxs, subs = batch
+        ys_ = self.generate(
+            xs
+            , raw_xs = raw_xs
+            , num_beams=self.config.num_beams
+            , num_return_sequences=self.config.num_return_sequences
+            )
+        subs_ = self.lm2lexsub(ys_)
+        return {
+        'target': tgts[0]
+        , 'POS': poss[0]
+        , 'position': ps[0]
+        , 'context': ctxs[0]
+        , 'input': raw_xs[0]
+        , 'subs': subs[0]
+        , 'subs_': subs_
+        }
 
     def configure_optimizers(self):
         no_decay = ['bias', 'LayerNorm.weight']
@@ -126,8 +126,4 @@ class LM(pl.LightningModule):
             , lr=self.config.learning_rate
             , eps=self.config.adam_epsilon
             )
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer=optimizer
-            , T_0=self.config.warmup_epoch
-            )
-        return [optimizer], [scheduler]
+        return optimizer

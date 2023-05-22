@@ -28,6 +28,9 @@ class DataModule(pl.LightningDataModule):
             case 'validate':
                 self.val_dataset = LSPDataset('val', self.config)
                 self.config.val_size = len(self.val_dataset)
+            case 'test':
+                self.test_dataset = LSPDataset('test', self.config)
+                self.config.test_size = len(self.test_dataset)
             case 'predict':
                 self.predict_dataset = LSPDataset('test', self.config)
                 self.config.predict_size = len(self.predict_dataset)
@@ -48,8 +51,19 @@ class DataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset
-            , batch_size=self.config.eval_batch_size
+            , batch_size=self.config.train_batch_size
             , collate_fn=self.val_dataset.collate_fn
+            , shuffle=False
+            , num_workers=self.config.num_workers
+            , pin_memory=True
+            , drop_last=False
+            )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_dataset
+            , batch_size=self.config.eval_batch_size
+            , collate_fn=self.test_dataset.collate_fn
             , shuffle=False
             , num_workers=self.config.num_workers
             , pin_memory=True

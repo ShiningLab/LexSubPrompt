@@ -23,6 +23,8 @@ class LSP(object):
         self.initialize()
 
     def initialize(self):
+        # setup device
+        self.config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         # get trainer
         self.trainer = LitTrainer(self.config)
         # setup random seed
