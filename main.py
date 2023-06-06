@@ -12,7 +12,7 @@ import torch
 from lightning.pytorch import seed_everything
 # private
 from config import Config
-from src.trainer import LitTrainer
+from src import helper
 
 
 class LSP(object):
@@ -26,7 +26,7 @@ class LSP(object):
         # setup device
         self.config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         # get trainer
-        self.trainer = LitTrainer(self.config)
+        self.trainer = helper.get_trainer(self.config)
         # setup random seed
         seed_everything(self.config.seed, workers=True)
         # enable tokenizer multi-processing

@@ -5,8 +5,6 @@ __email__ = 'Email'
 
 
 # dependency
-# built-in
-import os
 # public
 import lightning.pytorch as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -15,14 +13,18 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 # private
 from src import helper
 from src.eval import Evaluator
-from src.models import LSP
+from src.models import LM, LSP
 from src.datamodule import DataModule
 
+# import os
+# import pandas as pd
+# import torch
 
-class LitTrainer(object):
-    """docstring for LitTrainer"""
+
+class LMTrainer(object):
+    """docstring for LMTrainer"""
     def __init__(self, config, **kwargs):
-        super(LitTrainer, self).__init__()
+        super(LMTrainer, self).__init__()
         self.config = config
         self.update_config(**kwargs)
         self.initialize()
@@ -34,7 +36,111 @@ class LitTrainer(object):
 
     def initialize(self):
         # model
+        self.model = LM(self.config)
+        # datamodule
+        self.dm = DataModule(self.config)
+        # callbacks
+        filename = '{epoch}-{step}-{val_epoch_loss:.4f}'
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=self.config.CKPT_PATH
+            , filename=filename
+            , monitor='val_epoch_loss'
+            , mode='min'
+            , verbose=True
+            , save_last=True
+            , save_top_k=1
+            )
+        early_stop_callback = EarlyStopping(
+            monitor='val_epoch_loss'
+            , min_delta=.0
+            , patience=self.config.patience
+            , verbose=True
+            , mode='min'
+            )
+        # logger
+        self.logger = helper.init_logger(self.config)
+        self.logger.info('Logger initialized.')
+        self.wandb_logger = WandbLogger(
+            name=self.config.NAME
+            , save_dir=self.config.LOG_PATH
+            , offline=self.config.offline
+            , project=self.config.PROJECT
+            , log_model=self.config.log_model
+            , entity=self.config.ENTITY
+            , save_code=False
+            , mode=self.config.wandb_mode
+            )
+        self.wandb_logger.experiment.config.update(self.config)
+        # trainer
+        self.trainer = pl.Trainer(
+            accelerator=self.config.accelerator
+            , precision='16-mixed' if self.config.model == 'gpt2-xl' else '32-true' 
+            , logger = self.wandb_logger
+            , callbacks=[checkpoint_callback, early_stop_callback, RichProgressBar()]
+            , fast_dev_run=self.config.fast_dev_run
+            , max_epochs=self.config.max_epochs
+            , val_check_interval=self.config.val_check_interval
+            , enable_checkpointing=True
+            , enable_progress_bar=True
+            , gradient_clip_val=self.config.gradient_clip_val
+            , deterministic=True
+            , inference_mode=True
+            , profiler=self.config.profiler if self.config.profiler else None
+            )
+
+    def train(self):
+        self.logger.info('*Configurations:*')
+        for k, v in self.config.__dict__.items():
+            self.logger.info(f'\t{k}: {v}')
+        # training
+        self.logger.info("Start training...")
+        self.trainer.fit(
+            model=self.model
+            , datamodule=self.dm
+            , ckpt_path= 'last' if self.config.load_ckpt else None
+            )
+        self.logger.info('Done.')
+
+
+class LSPTrainer(object):
+    """docstring for LSPTrainer"""
+    def __init__(self, config, **kwargs):
+        super(LSPTrainer, self).__init__()
+        self.config = config
+        self.update_config(**kwargs)
+        self.initialize()
+
+    def update_config(self, **kwargs):
+        # update configuration accordingly
+        for k,v in kwargs.items():
+            setattr(self.config, k, v)
+
+    def initialize(self):
+        # logger
+        self.logger = helper.init_logger(self.config)
+        self.logger.info('Logger initialized.')
+        self.wandb_logger = WandbLogger(
+            name=self.config.NAME
+            , save_dir=self.config.LOG_PATH
+            , offline=self.config.offline
+            , project=self.config.PROJECT
+            , log_model=self.config.log_model
+            , entity=self.config.ENTITY
+            , save_code=False
+            , mode=self.config.wandb_mode
+            )
+        self.wandb_logger.experiment.config.update(self.config)
+        # model
         self.model = LSP(self.config)
+        match self.config.train_mode:
+            case 'base':
+                pass
+            case 'finetune':
+                self.logger.info('Finetuned model loading...')
+                self.model = self.model.load_from_checkpoint(
+                    self.config.FT_CKPT_PATH
+                    , config=self.config
+                    )
         # datamodule
         self.dm = DataModule(self.config)
         # callbacks
@@ -55,23 +161,10 @@ class LitTrainer(object):
             , verbose=True
             , mode='max'
             )
-        # logger
-        self.logger = helper.init_logger(self.config)
-        self.logger.info('Logger initialized.')
-        self.wandb_logger = WandbLogger(
-            name=self.config.NAME
-            , save_dir=self.config.LOG_PATH
-            , offline=self.config.offline
-            , project=self.config.PROJECT
-            , log_model=self.config.log_model
-            , entity=self.config.ENTITY
-            , save_code=False
-            , mode=self.config.wandb_mode
-            )
-        self.wandb_logger.experiment.config.update(self.config)
         # trainer
         self.trainer = pl.Trainer(
             accelerator=self.config.accelerator
+            , precision='16-mixed' if self.config.model == 'gpt2-xl' else '32-true' 
             , logger = self.wandb_logger
             , callbacks=[checkpoint_callback, early_stop_callback, RichProgressBar()]
             , fast_dev_run=self.config.fast_dev_run
@@ -129,12 +222,32 @@ class LitTrainer(object):
         outputs_dict = dict()
         for k in outputs_list[0]:
             outputs_dict[k] = [d[k] for d in outputs_list]
+        
+        # result_path = './res/results/lsp/genesis/wswitch/best/base/gpt2/'
+        # job = 'lsp-genesis-wswitch-best-base-gpt2-0'
+        # outputs_dict = pd.read_csv(
+        #     os.path.join(result_path, f'{job}.csv')
+        #     , delimiter=','
+        #     )
+        # outputs_dict['subs'] = [s.split(',') for s in outputs_dict.subs]
+        # outputs_dict['subs_'] = [s.split(',') for s in outputs_dict.subs_]
+        
         # postprocessing
         self.logger.info("Start postprocessing...")
-        outputs_dict['clean_subs_'] = helper.postprocess(outputs_dict)
+        outputs_dict['clean_subs_'] = helper.postprocess(
+            target=outputs_dict['target']
+            , pos=outputs_dict['pos']
+            , subs_=outputs_dict['subs_']
+            )
         # ranking
         self.logger.info("Start ranking...")
-        outputs_dict['rank_subs_'] = helper.rank(outputs_dict, self.config)
+        outputs_dict['rank_subs_'] = helper.rank(
+            target=outputs_dict['target']
+            , position=outputs_dict['position']
+            , context=outputs_dict['context']
+            , subs_=outputs_dict['clean_subs_']
+            , config=self.config
+            )
         return outputs_dict
 
     def update_wandb(self, predict_dict):

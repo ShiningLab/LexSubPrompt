@@ -17,14 +17,14 @@ class Evaluator(object):
         super(Evaluator, self).__init__()
         self.ys = results_dict['subs']
         self.ys_ = results_dict['subs_']
-        self.clean_ys_ = results_dict['clean_subs_']
         self.rank_ys_ = results_dict['rank_subs_']
+        self.clean_ys_ = results_dict['clean_subs_']
         self.get_metrics()
         self.get_info()
 
     def get_metrics(self):
         self.metrics_dict = {}
-        for prefix, ys_ in zip(['ori_', 'clean_', 'rank_'], [self.ys_, self.clean_ys_, self.rank_ys_]):
+        for prefix, ys_ in zip(['ori_', 'rank_', 'clean_'], [self.ys_, self.rank_ys_, self.clean_ys_]):
             p1, p3, r10 = get_metrics(self.ys, ys_)
             self.metrics_dict[f'{prefix}p1'] = p1
             self.metrics_dict[f'{prefix}p3'] = p3

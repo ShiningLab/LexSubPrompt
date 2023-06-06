@@ -15,29 +15,38 @@ def init_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--accelerator', type=str, default='auto')
     parser.add_argument('--seed', type=int, default=0, help='random seed')
+    # task
+    # finetune or lsp
+    parser.add_argument('--task', type=str, default='lsp')
     # data
     # genesis for data of https://aclanthology.org/2021.emnlp-main.844.pdf
     parser.add_argument('--data', type=str, default='genesis')
-    # base, contrast
-    parser.add_argument('--data_mode', type=str, default='base')
+    # base, sample, wsample, switch, wswitch
+    parser.add_argument('--data_mode', type=str, default='wswitch')
+    # base, full, best
+    parser.add_argument('--prompt_mode', type=str, default='best')
+    # base, finetune
+    parser.add_argument('--train_mode', type=str, default='base')
     # model
     parser.add_argument('--max_length', type=int, default=1024)
-    # gpt2, gpt2-medium, gpt2-large
+    # [0.1, 0.3, 0.5]
+    parser.add_argument('--pdrop', type=float, default=0.1)
+    # gpt2, gpt2-medium, gpt2-large, gpt2-xl
     # gpt-neo-125m, gpt-neo-350m
     parser.add_argument('--model', type=str, default='gpt2')
     parser.add_argument('--load_ckpt', type=helper.str2bool, default=False)
     # bert-large-cased
     parser.add_argument('--lm', type=str, default='bert-large-cased')
     # training
-    parser.add_argument('--train_batch_size', type=int, default=16)
-    parser.add_argument('--eval_batch_size', type=int, default=1)
+    parser.add_argument('--train_batch_size', type=int, default=16)  # for train and val
+    parser.add_argument('--eval_batch_size', type=int, default=1)  # for test
     parser.add_argument('--max_epochs', type=int, default=-1)  # -1 to enable infinite training
     parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     parser.add_argument('--weight_decay', type=float, default=0.001)
     parser.add_argument('--adam_epsilon', type=float, default=1e-8)
     parser.add_argument('--gradient_clip_val', type=float, default=1.0)
-    parser.add_argument('--fast_dev_run', type=helper.str2bool, default=False)
+    parser.add_argument('--fast_dev_run', type=helper.str2bool, default=False)  # True for development
     # evaluation
     parser.add_argument('--patience', type=int, default=6)
     parser.add_argument('--val_check_interval', type=float, default=1.0)
@@ -48,7 +57,7 @@ def init_args():
     # (str, optional) Can be 'simple' or 'advanced'. Defaults to ''.
     parser.add_argument('--profiler', type=str, default='')
     # logger
-    parser.add_argument('--offline', type=helper.str2bool, default=False) # True for development
+    parser.add_argument('--offline', type=helper.str2bool, default=False)  # True for development
     # (str, optional) Can be 'online', 'offline' or 'disabled'. Defaults to online.
     parser.add_argument('--wandb_mode', type=str, default='online')  # disabled for testing code
     parser.add_argument('--log_model', type=helper.str2bool, default=False)
@@ -65,9 +74,9 @@ class Config(object):
         # load config from parser
         for k,v in kwargs.items():
             setattr(self, k, v)
-        # fix configurations
-        if self.data_mode == 'contrast':
-            self.train_batch_size //= 2
+        # fix config
+        if self.model == 'gpt2-xl':
+            self.train_batch_size = 8
         # I/O
         # self.CURR_PATH = os.path.dirname(os.path.realpath(__file__))
         self.CURR_PATH = './'
@@ -79,24 +88,28 @@ class Config(object):
         self.LM_PATH = os.path.join(self.RESOURCE_PATH, 'lm', self.lm)  # rank
         self.MODEL_PATH = os.path.join(self.RESOURCE_PATH, 'lm', self.model)  # backbone
         # checkpoints
+        self.FT_CKPT_PATH = os.path.join(self.RESOURCE_PATH, 'finetune', f'{self.model}.ckpt')
         self.CKPT_PATH = os.path.join(
-            self.RESOURCE_PATH, 'ckpts', self.data, self.data_mode, self.model, str(self.seed)
+            self.RESOURCE_PATH, 'ckpts', self.task, self.data
+            , self.data_mode, self.prompt_mode, self.train_mode, self.model, str(self.seed)
             )
         os.makedirs(self.CKPT_PATH, exist_ok=True)
         self.CKPT_LAST = os.path.join(self.CKPT_PATH, 'last.ckpt')
         # log
         self.ENTITY = 'mrshininnnnn'
         self.PROJECT = 'LSP'
-        self.NAME = f'{self.data}-{self.data_mode}-{self.model}-{self.seed}'
+        self.NAME = f'{self.task}-{self.data}-{self.data_mode}-{self.prompt_mode}-{self.train_mode}-{self.model}-{self.seed}'
         self.LOG_PATH = os.path.join(
-            self.RESOURCE_PATH, 'log', self.data, self.data_mode, self.model, str(self.seed)
+            self.RESOURCE_PATH, 'log', self.task, self.data
+            , self.data_mode, self.prompt_mode, self.train_mode, self.model, str(self.seed)
             )
         os.makedirs(self.LOG_PATH, exist_ok=True)
         self.LOG_TXT = os.path.join(self.LOG_PATH, 'console_log.txt')
         os.remove(self.LOG_TXT) if os.path.exists(self.LOG_TXT) else None
         # results
         self.RESULTS_PATH = os.path.join(
-            self.RESOURCE_PATH, 'results', self.data, self.data_mode, self.model
+            self.RESOURCE_PATH, 'results', self.task, self.data
+            , self.data_mode, self.prompt_mode, self.train_mode, self.model
             )
         os.makedirs(self.RESULTS_PATH, exist_ok=True)
         self.RESULTS_PKL = os.path.join(self.RESULTS_PATH, f'{self.seed}.pkl')

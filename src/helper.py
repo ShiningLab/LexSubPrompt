@@ -10,13 +10,24 @@ import sys, pickle, logging
 # public
 import torch
 import torch.nn.functional as F
-from tqdm import trange
+from tqdm import tqdm
 from transformers import (
-    AutoModel
+    AutoConfig
+    , AutoModel
     , AutoTokenizer
     , AutoModelForPreTraining
     , GPTNeoForCausalLM
     )
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet
+# private
+from src import trainers, datasets
+
+
+NLTK_POS_DICT = {
+    'adjective':wordnet.ADJ, 'verb':wordnet.VERB, 'noun':wordnet.NOUN, 'adverb':wordnet.ADV
+    , 'ADJ':wordnet.ADJ, 'VERB':wordnet.VERB, 'NOUN':wordnet.NOUN, 'ADV':wordnet.ADV
+}
 
 
 def save_pickle(obj, path):
@@ -61,6 +72,15 @@ def init_logger(config):
 def flatten_list(regular_list: list) -> list:
     return [item for sublist in regular_list for item in sublist]
 
+def get_trainer(config):
+    match config.task:
+        case 'finetune':
+            return trainers.LMTrainer(config)
+        case 'lsp':
+            return trainers.LSPTrainer(config)
+        case _:
+            raise NotImplementedError
+
 def get_model(config):
     # gpt-neo-125m, gpt-neo-350m
     if 'neo' in config.model:
@@ -68,48 +88,44 @@ def get_model(config):
             config.MODEL_PATH
             )
     else:
+        model_config = AutoConfig.from_pretrained(config.MODEL_PATH)
+        model_config.resid_pdrop = config.pdrop
+        model_config.embd_pdrop = config.pdrop
+        model_config.attn_pdrop = config.pdrop
+        model_config.scale_attn_by_inverse_layer_idx = True
+        model_config.reorder_and_upcast_attn = True
         return AutoModelForPreTraining.from_pretrained(
             config.MODEL_PATH
-            , scale_attn_by_inverse_layer_idx=True
-            , reorder_and_upcast_attn=True
+            , config=model_config
             )
 
-def postprocess(outputs_dict):
-    # generate clean_subs_ based on subs_
-    clean_subs_ = []
-    for t, s, s_ in zip(outputs_dict['target'], outputs_dict['subs'], outputs_dict['subs_']):
-        # remove spaces
-        s_ = [i.strip() for i in s_]
-        # remove duplicates but keep the order
-        s_ = list(dict.fromkeys(s_))
-        # remove the target word itself
-        if t in s_:
-            s_.remove(t)
-        clean_subs_.append(s_)
-    return clean_subs_
+def get_dataset(config):
+    match config.task:
+        case 'finetune':
+            return datasets.LMDataset
+        case 'lsp':
+            return datasets.LSPDataset
+        case _:
+            raise NotImplementedError
 
-def rank(outputs_dict, config):
-    # generate rank_subs_ based on clean_subs_
+def rank(target, position, context, subs_, config):
     # initialize
-    rank_subs = []
+    rank_subs_ = []
     lm = AutoModel.from_pretrained(config.LM_PATH).to(config.device)
     tokenizer = AutoTokenizer.from_pretrained(config.LM_PATH)
     lm.eval()
-    for idx in trange(len(outputs_dict['target'])):
-        p = outputs_dict['position'][idx]  # target word position
-        ctx = outputs_dict['context'][idx]  # original context 
-        s_ = outputs_dict['clean_subs_'][idx]  # cleaned substitutes
+    for tgt, p, ctx, s_ in zip(tqdm(target), position, context, subs_):
         # get all contexts
         ctxs_ = []
         ctx = ctx.split()
-        for i in s_:
+        for i in [tgt] + s_:
             i = i.replace('_', ' ')
             ctx_ = ctx[:p] + [i] + ctx[p+1:]
             ctx_ = ' '.join(ctx_)
             ctxs_.append(ctx_)
         ctx = ' '.join(ctx)
+        ctxs_ = [ctx] + ctxs_
         # contexts representation
-        ctxs_ = [ctx] + ctxs_  # the first is the target context
         ctxs_ = tokenizer.batch_encode_plus(ctxs_, return_tensors='pt', padding=True).to(config.device)
         with torch.no_grad():
             hs = lm(**ctxs_, output_hidden_states=True).hidden_states
@@ -119,12 +135,46 @@ def rank(outputs_dict, config):
         hs = hs.view(hs.shape[0], -1)
         # normalize each vector
         hs = F.normalize(hs, dim=-1)
-        # take the first vector as the target one
-        tgt_h = hs[0]
+        # take the mean of the first two as the target
+        tgt_h = torch.mean(hs[:2], dim=0)
         # calculate the cosine similarities
-        cos_sims = torch.matmul(hs[1:], tgt_h)
+        cos_sims = torch.matmul(hs[2:], tgt_h)
         # get the indices that would sort the scores
         rank_indices = cos_sims.argsort(descending=True).cpu().detach().numpy().tolist()
         # sort the items
-        rank_subs.append([s_[i] for i in rank_indices])
-    return rank_subs
+        rank_subs_.append([s_[i] for i in rank_indices])
+    return rank_subs_
+
+def get_pos(word):
+    # preprocessing
+    word = word.replace('_', ' ')
+    # get all synsets for the word
+    synsets = wordnet.synsets(word)
+    # collect all pos tags for each synset
+    pos_tags = {synset.pos() for synset in synsets}
+    # the tag "s" stands for "Satellite Adjective"
+    if wordnet.ADJ_SAT in pos_tags:
+        pos_tags.remove(wordnet.ADJ_SAT)
+        pos_tags.add(wordnet.ADJ)
+    return pos_tags
+
+def postprocess(target, pos, subs_):
+    clean_subs_ = []
+    lemmatizer = WordNetLemmatizer()
+    for tgt, pos, sub_ in zip(target, pos, subs_):
+        # remove spaces
+        sub_ = [s.strip() for s in sub_]
+        # unify part-of-speech
+        pos = NLTK_POS_DICT[pos]
+        # PoS filtering
+        sub_ = [s for s in sub_ if pos in get_pos(s)]
+        # lemmatization
+        sub_ = [lemmatizer.lemmatize(s, pos) for s in sub_]
+        # remove the target word
+        tgts = {tgt, lemmatizer.lemmatize(tgt, pos)}
+        sub_ = [s for s in sub_ if s not in tgts]
+        # remove duplicates but keep the order
+        sub_ = list(dict.fromkeys(sub_))
+        # save
+        clean_subs_.append(sub_)
+    return clean_subs_

@@ -1,12 +1,15 @@
 # self defined
 *.pkl
 *.ipynb
+*.ckpt
+se07/
 lm/
 log/
 data/
 ckpts/
 results/
 script/
+finetune/
 .DS_Store
 
 # Byte-compiled / optimized / DLL files

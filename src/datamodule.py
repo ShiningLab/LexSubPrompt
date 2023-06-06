@@ -9,7 +9,7 @@ __email__ = 'Email'
 import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 # private
-from src.datasets import LSPDataset
+from src import helper
 
 
 class DataModule(pl.LightningDataModule):
@@ -17,22 +17,23 @@ class DataModule(pl.LightningDataModule):
     def __init__(self, config):
         super(DataModule, self).__init__()
         self.config = config
+        self.Dataset = helper.get_dataset(self.config)
 
     def setup(self, stage: str):
         match stage:
             case 'fit':
-                self.train_dataset = LSPDataset('train', self.config)
-                self.val_dataset = LSPDataset('val', self.config)
+                self.train_dataset = self.Dataset('train', self.config)
+                self.val_dataset = self.Dataset('val', self.config)
                 self.config.train_size = len(self.train_dataset)
                 self.config.val_size = len(self.val_dataset)
             case 'validate':
-                self.val_dataset = LSPDataset('val', self.config)
+                self.val_dataset = self.Dataset('val', self.config)
                 self.config.val_size = len(self.val_dataset)
             case 'test':
-                self.test_dataset = LSPDataset('test', self.config)
+                self.test_dataset = self.Dataset('test', self.config)
                 self.config.test_size = len(self.test_dataset)
             case 'predict':
-                self.predict_dataset = LSPDataset('test', self.config)
+                self.predict_dataset = self.Dataset('test', self.config)
                 self.config.predict_size = len(self.predict_dataset)
             case _:
                 raise NotImplementedError

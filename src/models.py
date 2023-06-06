@@ -15,14 +15,69 @@ from src import helper
 from src.eval import overall_precision_at_k
 
 
+class LM(pl.LightningModule):
+    """docstring for LM"""
+    def __init__(self, config, **kwargs):
+        super(LM, self).__init__()
+        self.config = config
+        self.update_config(**kwargs)
+        self.model = helper.get_model(config)
+        self.train_loss, self.val_loss = [], []
+        self.save_hyperparameters()
+
+    def update_config(self, **kwargs):
+        # update configuration accordingly
+        for k,v in kwargs.items():
+            setattr(self.config, k, v)
+
+    def training_step(self, batch, batch_idx):
+        loss = self.model(**batch, labels=batch.input_ids).loss
+        self.train_loss.append(loss.item())
+        self.log('train_step_loss', loss.item(), prog_bar=True)
+        return loss
+
+    def on_train_epoch_end(self):
+        loss = np.mean(self.train_loss, dtype='float32')
+        self.log('train_epoch_loss', loss)
+        self.train_loss = []
+
+    def validation_step(self, batch, batch_idx):
+        loss = self.model(**batch, labels=batch.input_ids).loss.item()
+        self.val_loss.append(loss)
+
+    def on_validation_epoch_end(self):
+        loss = np.mean(self.val_loss, dtype='float32')
+        self.log('val_epoch_loss', loss)
+        self.val_loss = []
+
+    def configure_optimizers(self):
+        no_decay = ['bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+            {
+                "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)]
+                , "weight_decay": self.config.weight_decay
+                }
+            , {
+                "params": [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)]
+                , "weight_decay": 0.0
+                }
+            ]
+        optimizer = torch.optim.AdamW(
+            optimizer_grouped_parameters
+            , lr=self.config.learning_rate
+            , eps=self.config.adam_epsilon
+            )
+        return optimizer
+
+
 class LSP(pl.LightningModule):
     """docstring for LSP"""
     def __init__(self, config, **kwargs):
         super(LSP, self).__init__()
         self.config = config
         self.update_config(**kwargs)
+        self.model = helper.get_model(self.config)
         self.tokenizer = AutoTokenizer.from_pretrained(config.MODEL_PATH)
-        self.model = helper.get_model(config)
         self.train_loss, self.val_loss = [], []
         self.val_subs, self.val_subs_= [], []
         self.test_subs, self.test_subs_= [], []
@@ -33,9 +88,10 @@ class LSP(pl.LightningModule):
         for k,v in kwargs.items():
             setattr(self.config, k, v)
 
-    def generate(self, xs, num_beams, num_return_sequences, raw_xs=None):
-        if raw_xs:
-            bad_words_ids = [self.tokenizer(raw_xs[0].split('"')[1], add_special_tokens=False).input_ids]
+    def generate(self, xs, num_beams, num_return_sequences, tgt=None):
+        # ignore target word when generating substitutes
+        if tgt:
+            bad_words_ids = [self.tokenizer(tgt, add_special_tokens=False).input_ids]
         else:
             bad_words_ids = None
         ys_ = self.model.generate(
@@ -91,22 +147,24 @@ class LSP(pl.LightningModule):
         self.val_loss, self.val_subs, self.val_subs_= [], [], []
 
     def predict_step(self, batch, batch_idx):
-        raw_xs, xs, tgts, poss, ps, ctxs, subs = batch
+        raw_x, x, idx, tgt, pos, p, ctx, vocab, subs = batch
         ys_ = self.generate(
-            xs
-            , raw_xs = raw_xs
+            x
+            , tgt = tgt
             , num_beams=self.config.num_beams
             , num_return_sequences=self.config.num_return_sequences
             )
         subs_ = self.lm2lexsub(ys_)
         return {
-        'target': tgts[0]
-        , 'POS': poss[0]
-        , 'position': ps[0]
-        , 'context': ctxs[0]
-        , 'input': raw_xs[0]
-        , 'subs': subs[0]
-        , 'subs_': subs_
+        'index': idx  # sample index
+        , 'target': tgt  # target word
+        , 'pos': pos  # part-of-speech
+        , 'position': p  # position
+        , 'context': ctx  # context
+        , 'vocab': vocab  # vocab pool
+        , 'input': raw_x  # model input
+        , 'subs': subs  # gold substitutes
+        , 'subs_': subs_  # predicted substitutes
         }
 
     def configure_optimizers(self):
