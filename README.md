@@ -1,4 +1,4 @@
-# LexSubPrompt
+# PromptSub
 This repository is for the paper Lexical Substitution as Causal Language Modeling.
 
 ## Dependencies
