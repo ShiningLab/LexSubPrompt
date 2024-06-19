@@ -79,15 +79,6 @@ def init_logger(config):
 def flatten_list(regular_list: list) -> list:
     return [item for sublist in regular_list for item in sublist]
 
-def get_trainer(config):
-    match config.task:
-        case 'finetune':
-            return trainers.LMTrainer(config)
-        case 'lsp':
-            return trainers.LSPTrainer(config)
-        case _:
-            raise NotImplementedError
-
 def get_model(config):
     # gpt-neo-125m, gpt-neo-350m
     if 'neo' in config.model:
