@@ -1,7 +1,7 @@
 # PromptSub
 This repository is for the paper Lexical Substitution as Causal Language Modeling. In *Proceedings of the 13th Joint Conference on Lexical and Computational Semantics (\*SEM 2024)*, Mexico City, Mexico. Association for Computational Linguistics.
 
-[[Paper]()] [[Poster]()] [[Slides]()]
+[[Paper](https://github.com/ShiningLab/PromptSub/blob/main/assets/paper.pdf)] [[Poster](https://github.com/ShiningLab/PromptSub/blob/main/assets/poster.pdf)] [[Slides](https://github.com/ShiningLab/PromptSub/blob/main/assets/slides.pdf)]
 
 ## Dependencies
 + python >= 3.11.9
