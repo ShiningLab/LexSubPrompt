@@ -97,15 +97,6 @@ def get_model(config):
             , config=model_config
             )
 
-def get_dataset(config):
-    match config.task:
-        case 'finetune':
-            return datasets.LMDataset
-        case 'lsp':
-            return datasets.LSPDataset
-        case _:
-            raise NotImplementedError
-
 def get_wordnet_synonyms(word, pos):
     """
     Retrieve synonyms for a given word from WordNet.

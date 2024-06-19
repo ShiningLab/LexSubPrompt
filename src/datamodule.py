@@ -9,7 +9,7 @@ __email__ = 'mrshininnnnn@gmail.com'
 import lightning.pytorch as pl
 from torch.utils.data import DataLoader
 # private
-from src import helper
+from src import datasets
 
 
 class DataModule(pl.LightningDataModule):
@@ -17,7 +17,7 @@ class DataModule(pl.LightningDataModule):
     def __init__(self, config):
         super(DataModule, self).__init__()
         self.config = config
-        self.Dataset = helper.get_dataset(self.config)
+        self.Dataset = datasets.LSPDataset(config)
 
     def setup(self, stage: str):
         match stage:
