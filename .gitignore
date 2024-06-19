@@ -3,9 +3,7 @@
 *.ipynb
 *.ckpt
 se07/
-lm/
 log/
-data/
 ckpts/
 results/
 script/
