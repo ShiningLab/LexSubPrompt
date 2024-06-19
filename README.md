@@ -10,6 +10,7 @@ This repository is for the paper Lexical Substitution as Causal Language Modelin
 + transformers >= 4.41.2
 + wandb >= 0.17.2
 + rich >= 13.7.1
++ nltk >= 3.8.1
 
 ## Setups
 It is recommended to use a virtual environment to manage dependencies. Follow the steps below to set up the environment and install the required packages:

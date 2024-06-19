@@ -61,9 +61,9 @@ def init_args():
     # (str, optional) Can be 'simple' or 'advanced'. Defaults to ''.
     parser.add_argument('--profiler', type=str, default='')
     # logger
-    parser.add_argument('--offline', type=helper.str2bool, default=False)  # True for development
+    parser.add_argument('--offline', type=helper.str2bool, default=True)  # True for development
     # (str, optional) Can be 'online', 'offline' or 'disabled'. Defaults to online.
-    parser.add_argument('--wandb_mode', type=str, default='online')  # disabled for testing code
+    parser.add_argument('--wandb_mode', type=str, default='disabled')  # disabled for testing code
     parser.add_argument('--log_model', type=helper.str2bool, default=False)
     # save as argparse space
     return parser.parse_known_args()[0]
@@ -111,7 +111,6 @@ class Config(object):
         self.LM_PATH = os.path.join(self.RESOURCE_PATH, 'lm', self.lm)  # rank
         self.MODEL_PATH = os.path.join(self.RESOURCE_PATH, 'lm', self.model)  # backbone
         # checkpoints
-        self.FT_CKPT_PATH = os.path.join(self.RESOURCE_PATH, 'finetune', f'{self.model}.ckpt')
         self.CKPT_PATH = os.path.join(
             self.RESOURCE_PATH, 'ckpts', self.data
             , self.data_mode, self.prompt_mode, self.train_mode, self.model, str(self.seed)

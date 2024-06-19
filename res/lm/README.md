@@ -8,7 +8,8 @@ res/lm
 ├── README.md
 ├── gpt2
 ├── gpt2-medium
-└── gpt2-large
+├── gpt2-large
+└── bert-large-cased
 ```
 
 ## Downloads
@@ -21,6 +22,7 @@ $ git lfs install
 $ git clone https://huggingface.co/openai-community/gpt2
 $ git clone https://huggingface.co/openai-community/gpt2-medium
 $ git clone https://huggingface.co/openai-community/gpt2-large
+$ git clone https://huggingface.co/google-bert/bert-large-cased
 ```
 
 ## Authors
