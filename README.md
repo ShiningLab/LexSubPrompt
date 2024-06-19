@@ -17,6 +17,7 @@ It is recommended to use a virtual environment to manage dependencies. Follow th
 $ cd PromptSub
 $ pip install --upgrade pip
 $ pip install -r requirements.txt
+```
 
 ## Run
 Before training, review and modify the training configurations in config.py as needed:
