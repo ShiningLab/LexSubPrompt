@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
-__author__ = 'Author'
-__email__ = 'Email'
+__author__ = 'Shining'
+__email__ = 'mrshininnnnn@gmail.com'
 
 
 # dependency
@@ -18,8 +18,8 @@ from transformers import (
     , AutoModelForPreTraining
     , GPTNeoForCausalLM
     )
-from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
+from nltk.stem import WordNetLemmatizer
 # private
 from src import trainers, datasets
 
@@ -28,6 +28,13 @@ NLTK_POS_DICT = {
     'adjective':wordnet.ADJ, 'verb':wordnet.VERB, 'noun':wordnet.NOUN, 'adverb':wordnet.ADV
     , 'ADJ':wordnet.ADJ, 'VERB':wordnet.VERB, 'NOUN':wordnet.NOUN, 'ADV':wordnet.ADV
 }
+
+POS_DICT = {}
+POS_DICT['ADJ'] = 'adjective'
+POS_DICT['ADV'] = 'adverb'
+POS_DICT['NOUN'] = 'noun'
+POS_DICT['VERB'] = 'verb'
+POS_DICT.update({v:k for k, v in POS_DICT.items()})
 
 
 def save_pickle(obj, path):
@@ -108,37 +115,57 @@ def get_dataset(config):
         case _:
             raise NotImplementedError
 
+def get_wordnet_synonyms(word, pos):
+    """
+    Retrieve synonyms for a given word from WordNet.
+    """
+    synonyms = set()
+    wordnet_pos = NLTK_POS_DICT.get(pos, None)
+    for syn in wordnet.synsets(word, pos=wordnet_pos):
+        for lemma in syn.lemmas():
+            synonyms.add(lemma.name().replace('_', '-'))  # Replace underscores with spaces
+    synonyms = set([s.lower() for s in synonyms])
+    if word in synonyms:
+        synonyms.remove(word)
+    if synonyms:
+        return 'synonyms ' + ', '.join([f'"{s}"' for s in sorted(synonyms)])
+    else:
+        return 'none synonyms'
+
 def rank(target, position, context, subs_, config):
     # initialize
     rank_subs_ = []
     lm = AutoModel.from_pretrained(config.LM_PATH).to(config.device)
     tokenizer = AutoTokenizer.from_pretrained(config.LM_PATH)
     lm.eval()
+    # iterate each instance
     for tgt, p, ctx, s_ in zip(tqdm(target), position, context, subs_):
         # get all contexts
-        ctxs_ = []
-        ctx = ctx.split()
-        for i in [tgt] + s_:
-            i = i.replace('_', ' ')
-            ctx_ = ctx[:p] + [i] + ctx[p+1:]
-            ctx_ = ' '.join(ctx_)
-            ctxs_.append(ctx_)
-        ctx = ' '.join(ctx)
-        ctxs_ = [ctx] + ctxs_
+        ctxs = []
+        tk_ctx = ctx.split()
+        for i in [tk_ctx[p], tgt] + s_:
+            # processing
+            for pun in ['_', '-']:
+                i = i.replace(pun, ' ')
+            # get all contexts
+            ctx = ' '.join(tk_ctx[:p] + [i] + tk_ctx[p+1:])
+            ctxs.append(ctx)
         # contexts representation
-        ctxs_ = tokenizer.batch_encode_plus(ctxs_, return_tensors='pt', padding=True).to(config.device)
+        ctxs = tokenizer.batch_encode_plus(
+            ctxs, return_tensors='pt', padding=True).to(config.device)
         with torch.no_grad():
-            hs = lm(**ctxs_, output_hidden_states=True).hidden_states
+            hs = lm(**ctxs, output_hidden_states=True).hidden_states
         # mean of all layers
-        hs = torch.mean(torch.stack(hs), dim=0)
-        # flatten each tensor into a single vector
-        hs = hs.view(hs.shape[0], -1)
-        # normalize each vector
-        hs = F.normalize(hs, dim=-1)
+        hs = torch.stack(hs).mean(dim=0)
+        # flatten each tensor into a vector
+        hs = hs.reshape(hs.shape[0], -1)
         # take the mean of the first two as the target
-        tgt_h = torch.mean(hs[:2], dim=0)
+        tgt_h = hs[:2].mean(dim=0)
         # calculate the cosine similarities
-        cos_sims = torch.matmul(hs[2:], tgt_h)
+        cos_sims = []
+        for h in hs[2:]:
+            cos_sims.append(F.cosine_similarity(h, tgt_h, dim=0).item())
+        cos_sims = torch.Tensor(cos_sims)
         # get the indices that would sort the scores
         rank_indices = cos_sims.argsort(descending=True).cpu().detach().numpy().tolist()
         # sort the items

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
-__author__ = 'Author'
-__email__ = 'Email'
+__author__ = 'Shining'
+__email__ = 'mrshininnnnn@gmail.com'
 
 
 # dependency
@@ -52,7 +52,7 @@ class DataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset
-            , batch_size=self.config.train_batch_size
+            , batch_size=self.config.val_batch_size
             , collate_fn=self.val_dataset.collate_fn
             , shuffle=False
             , num_workers=self.config.num_workers
@@ -63,7 +63,7 @@ class DataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset
-            , batch_size=self.config.eval_batch_size
+            , batch_size=self.config.test_batch_size
             , collate_fn=self.test_dataset.collate_fn
             , shuffle=False
             , num_workers=self.config.num_workers
@@ -74,7 +74,7 @@ class DataModule(pl.LightningDataModule):
     def predict_dataloader(self):
         return DataLoader(
             self.predict_dataset
-            , batch_size=self.config.eval_batch_size
+            , batch_size=self.config.test_batch_size
             , collate_fn=self.predict_dataset.collate_fn
             , shuffle=False
             , num_workers=self.config.num_workers

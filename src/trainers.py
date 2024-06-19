@@ -1,105 +1,20 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
-__author__ = 'Author'
-__email__ = 'Email'
+__author__ = 'Shining'
+__email__ = 'mrshininnnnn@gmail.com'
 
 
 # dependency
 # public
-import lightning.pytorch as pl
-from pytorch_lightning.loggers import WandbLogger
+import lightning as L
+from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, RichProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 # private
 from src import helper
 from src.eval import Evaluator
-from src.models import LM, LSP
+from src.models import LSP
 from src.datamodule import DataModule
-
-# import os
-# import pandas as pd
-# import torch
-
-
-class LMTrainer(object):
-    """docstring for LMTrainer"""
-    def __init__(self, config, **kwargs):
-        super(LMTrainer, self).__init__()
-        self.config = config
-        self.update_config(**kwargs)
-        self.initialize()
-
-    def update_config(self, **kwargs):
-        # update configuration accordingly
-        for k,v in kwargs.items():
-            setattr(self.config, k, v)
-
-    def initialize(self):
-        # model
-        self.model = LM(self.config)
-        # datamodule
-        self.dm = DataModule(self.config)
-        # callbacks
-        filename = '{epoch}-{step}-{val_epoch_loss:.4f}'
-        checkpoint_callback = ModelCheckpoint(
-            dirpath=self.config.CKPT_PATH
-            , filename=filename
-            , monitor='val_epoch_loss'
-            , mode='min'
-            , verbose=True
-            , save_last=True
-            , save_top_k=1
-            )
-        early_stop_callback = EarlyStopping(
-            monitor='val_epoch_loss'
-            , min_delta=.0
-            , patience=self.config.patience
-            , verbose=True
-            , mode='min'
-            )
-        # logger
-        self.logger = helper.init_logger(self.config)
-        self.logger.info('Logger initialized.')
-        self.wandb_logger = WandbLogger(
-            name=self.config.NAME
-            , save_dir=self.config.LOG_PATH
-            , offline=self.config.offline
-            , project=self.config.PROJECT
-            , log_model=self.config.log_model
-            , entity=self.config.ENTITY
-            , save_code=False
-            , mode=self.config.wandb_mode
-            )
-        self.wandb_logger.experiment.config.update(self.config)
-        # trainer
-        self.trainer = pl.Trainer(
-            accelerator=self.config.accelerator
-            , precision='16-mixed' if self.config.model == 'gpt2-xl' else '32-true' 
-            , logger = self.wandb_logger
-            , callbacks=[checkpoint_callback, early_stop_callback, RichProgressBar()]
-            , fast_dev_run=self.config.fast_dev_run
-            , max_epochs=self.config.max_epochs
-            , val_check_interval=self.config.val_check_interval
-            , enable_checkpointing=True
-            , enable_progress_bar=True
-            , gradient_clip_val=self.config.gradient_clip_val
-            , deterministic=True
-            , inference_mode=True
-            , profiler=self.config.profiler if self.config.profiler else None
-            )
-
-    def train(self):
-        self.logger.info('*Configurations:*')
-        for k, v in self.config.__dict__.items():
-            self.logger.info(f'\t{k}: {v}')
-        # training
-        self.logger.info("Start training...")
-        self.trainer.fit(
-            model=self.model
-            , datamodule=self.dm
-            , ckpt_path= 'last' if self.config.load_ckpt else None
-            )
-        self.logger.info('Done.')
 
 
 class LSPTrainer(object):
@@ -144,38 +59,45 @@ class LSPTrainer(object):
         # datamodule
         self.dm = DataModule(self.config)
         # callbacks
-        filename = '{epoch}-{step}-{val_p1:.4f}'
+        if self.config.monitor == 'val_p1':
+            filename = '{epoch}-{step}-{val_p1:.4f}'
+        elif self.config.monitor == 'val_f10':
+            filename = '{epoch}-{step}-{val_f10:.4f}'
+        else:
+            raise NotImplementedError
         checkpoint_callback = ModelCheckpoint(
             dirpath=self.config.CKPT_PATH
             , filename=filename
-            , monitor='val_p1'
+            , monitor=self.config.monitor
             , mode='max'
             , verbose=True
             , save_last=True
             , save_top_k=1
             )
         early_stop_callback = EarlyStopping(
-            monitor='val_p1'
+            monitor=self.config.monitor
             , min_delta=.0
             , patience=self.config.patience
             , verbose=True
             , mode='max'
             )
         # trainer
-        self.trainer = pl.Trainer(
+        self.trainer = L.Trainer(
             accelerator=self.config.accelerator
-            , precision='16-mixed' if self.config.model == 'gpt2-xl' else '32-true' 
+            , precision=self.config.precision
             , logger = self.wandb_logger
             , callbacks=[checkpoint_callback, early_stop_callback, RichProgressBar()]
             , fast_dev_run=self.config.fast_dev_run
             , max_epochs=self.config.max_epochs
             , val_check_interval=self.config.val_check_interval
+            , check_val_every_n_epoch=self.config.check_val_every_n_epoch
             , enable_checkpointing=True
             , enable_progress_bar=True
             , gradient_clip_val=self.config.gradient_clip_val
             , deterministic=True
             , inference_mode=True
             , profiler=self.config.profiler if self.config.profiler else None
+            , num_sanity_val_steps=2
             )
 
     def train(self):
@@ -231,7 +153,7 @@ class LSPTrainer(object):
         #     )
         # outputs_dict['subs'] = [s.split(',') for s in outputs_dict.subs]
         # outputs_dict['subs_'] = [s.split(',') for s in outputs_dict.subs_]
-        
+
         # postprocessing
         self.logger.info("Start postprocessing...")
         outputs_dict['clean_subs_'] = helper.postprocess(

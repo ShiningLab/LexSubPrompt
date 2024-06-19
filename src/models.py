@@ -1,76 +1,21 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
-__author__ = 'Author'
-__email__ = 'Email'
+__author__ = 'Shining'
+__email__ = 'mrshininnnnn@gmail.com'
 
 
 # dependency
 # public
 import torch
 import numpy as np
-import lightning.pytorch as pl
+import lightning as L
 from transformers import AutoTokenizer
 # private
 from src import helper
-from src.eval import overall_precision_at_k
+from src.eval import get_f1, overall_precision_at_k, overall_recall_at_k
 
 
-class LM(pl.LightningModule):
-    """docstring for LM"""
-    def __init__(self, config, **kwargs):
-        super(LM, self).__init__()
-        self.config = config
-        self.update_config(**kwargs)
-        self.model = helper.get_model(config)
-        self.train_loss, self.val_loss = [], []
-        self.save_hyperparameters()
-
-    def update_config(self, **kwargs):
-        # update configuration accordingly
-        for k,v in kwargs.items():
-            setattr(self.config, k, v)
-
-    def training_step(self, batch, batch_idx):
-        loss = self.model(**batch, labels=batch.input_ids).loss
-        self.train_loss.append(loss.item())
-        self.log('train_step_loss', loss.item(), prog_bar=True)
-        return loss
-
-    def on_train_epoch_end(self):
-        loss = np.mean(self.train_loss, dtype='float32')
-        self.log('train_epoch_loss', loss)
-        self.train_loss = []
-
-    def validation_step(self, batch, batch_idx):
-        loss = self.model(**batch, labels=batch.input_ids).loss.item()
-        self.val_loss.append(loss)
-
-    def on_validation_epoch_end(self):
-        loss = np.mean(self.val_loss, dtype='float32')
-        self.log('val_epoch_loss', loss)
-        self.val_loss = []
-
-    def configure_optimizers(self):
-        no_decay = ['bias', 'LayerNorm.weight']
-        optimizer_grouped_parameters = [
-            {
-                "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)]
-                , "weight_decay": self.config.weight_decay
-                }
-            , {
-                "params": [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)]
-                , "weight_decay": 0.0
-                }
-            ]
-        optimizer = torch.optim.AdamW(
-            optimizer_grouped_parameters
-            , lr=self.config.learning_rate
-            , eps=self.config.adam_epsilon
-            )
-        return optimizer
-
-
-class LSP(pl.LightningModule):
+class LSP(L.LightningModule):
     """docstring for LSP"""
     def __init__(self, config, **kwargs):
         super(LSP, self).__init__()
@@ -88,7 +33,7 @@ class LSP(pl.LightningModule):
         for k,v in kwargs.items():
             setattr(self.config, k, v)
 
-    def generate(self, xs, num_beams, num_return_sequences, tgt=None):
+    def generate(self, xs, tgt=None, num_beams=1, num_return_sequences=1):
         # ignore target word when generating substitutes
         if tgt:
             bad_words_ids = [self.tokenizer(tgt, add_special_tokens=False).input_ids]
@@ -101,10 +46,16 @@ class LSP(pl.LightningModule):
             , num_beam_groups=1
             , early_stopping=True
             , num_return_sequences=num_return_sequences
+            , bad_words_ids = bad_words_ids
             , pad_token_id=self.tokenizer.eos_token_id
-            , bad_words_ids = bad_words_ids if bad_words_ids else None
+            , eos_token_id=self.tokenizer.eos_token_id
         )
-        ys_ = self.tokenizer.batch_decode(ys_, skip_special_tokens=True)
+        if tgt:
+            ys_ = self.tokenizer.batch_decode(ys_, skip_special_tokens=True)
+        else:
+            batch_size = xs.input_ids.shape[0]
+            ys_ = ys_.reshape(batch_size, num_return_sequences, -1)
+            ys_ = [self.tokenizer.batch_decode(y_, skip_special_tokens=True) for y_ in ys_]
         return ys_
 
     def lm2lexsub(self, sents):
@@ -135,16 +86,30 @@ class LSP(pl.LightningModule):
         loss = self.model(**ys, labels=labels).loss.item()
         self.val_loss.append(loss)
         # generate
-        ys_ = self.generate(xs, num_beams=1, num_return_sequences=1)
-        subs_ = self.lm2lexsub(ys_)
-        self.val_subs += subs  # list[list[str]]
-        self.val_subs_ += [[s] for s in subs_]  # list[str] -> list[list[str]]
+        ys_ = self.generate(
+            xs
+            , num_beams=10 if self.config.monitor == 'val_f10' else 1
+            , num_return_sequences=10 if self.config.monitor == 'val_f10' else 1
+            )
+        subs_ = [self.lm2lexsub(y_) for y_ in ys_]
+        self.val_subs += subs
+        self.val_subs_ += subs_
         
     def on_validation_epoch_end(self):
+        # simple postprocessing
         loss = np.mean(self.val_loss, dtype='float32')
-        p1 = overall_precision_at_k(self.val_subs, self.val_subs_, 1)
-        self.log_dict({'val_epoch_loss': loss, 'val_p1': p1})
+        if self.config.monitor == 'val_p1':
+            p1 = overall_precision_at_k(self.val_subs, self.val_subs_, 1)
+            self.log_dict({'val_epoch_loss': loss, 'val_p1': p1})
+        elif self.config.monitor == 'val_f10':
+            p10 = overall_precision_at_k(self.val_subs, self.val_subs_, 10)
+            r10 = overall_recall_at_k(self.val_subs, self.val_subs_, 10)
+            f10 = get_f1(p10, r10)
+            self.log_dict({'val_epoch_loss': loss, 'val_f10': f10})
+        else:
+            raise NotImplementedError
         self.val_loss, self.val_subs, self.val_subs_= [], [], []
+        torch.cuda.empty_cache()
 
     def predict_step(self, batch, batch_idx):
         raw_x, x, idx, tgt, pos, p, ctx, vocab, subs = batch
