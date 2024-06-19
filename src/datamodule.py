@@ -17,7 +17,7 @@ class DataModule(pl.LightningDataModule):
     def __init__(self, config):
         super(DataModule, self).__init__()
         self.config = config
-        self.Dataset = datasets.LSPDataset(config)
+        self.Dataset = datasets.LSPDataset
 
     def setup(self, stage: str):
         match stage:
