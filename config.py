@@ -39,7 +39,7 @@ def init_args():
     parser.add_argument('--accumulate_grad_batches', type=int, default=1)
     parser.add_argument('--val_batch_size', type=int, default=32)  # for valiation
     parser.add_argument('--test_batch_size', type=int, default=1)  # for test
-    parser.add_argument('--max_epochs', type=int, default=-1)  # -1 to enable infinite training
+    parser.add_argument('--max_epochs', type=int, default=1)  # -1 to enable infinite training
     parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     parser.add_argument('--weight_decay', type=float, default=0.001)

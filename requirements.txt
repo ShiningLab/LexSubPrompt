@@ -1,0 +1,5 @@
+torch==2.3.1
+lightning==2.3.0
+transformers==4.41.2
+wandb==0.17.2
+rich==13.7.1

@@ -11,8 +11,15 @@ This repository is for the paper Lexical Substitution as Causal Language Modelin
 + wandb >= 0.17.2
 + rich >= 13.7.1
 
+## Setups
+It is recommended to use a virtual environment to manage dependencies. Follow the steps below to set up the environment and install the required packages:
+```sh
+$ cd PromptSub
+$ pip install --upgrade pip
+$ pip install -r requirements.txt
+
 ## Run
-Before training, please take a look at the **config.py** to ensure training configurations.
+Before training, review and modify the training configurations in config.py as needed:
 ```
 $ vim config.py
 $ python main.py

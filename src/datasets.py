@@ -16,7 +16,7 @@ from src import helper
 
 class LSPDataset(torch_data.Dataset):
     """docstring for LSPDataset"""
-    def __init__(self, mode, config, sample_size=None):
+    def __init__(self, mode, config, sample_size=100):
         super(LSPDataset, self).__init__()
         assert mode in ['train', 'val', 'test']
         self.mode = mode
