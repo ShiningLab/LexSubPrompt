@@ -37,7 +37,7 @@ class LSP(object):
 
 def main() -> None:
     lsp = LSP()
-    # lsp.trainer.train()
+    lsp.trainer.train()
 
 if __name__ == '__main__':
       main()
