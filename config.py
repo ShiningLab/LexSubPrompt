@@ -18,11 +18,11 @@ def init_args():
     # data
     # genesis for data of https://aclanthology.org/2021.emnlp-main.844.pdf
     # ls14, ls21
-    parser.add_argument('--data', type=str, default='genesis')
+    parser.add_argument('--data', type=str, default='ls21')
     # base, sample, wsample
     parser.add_argument('--data_mode', type=str, default='wsample')
     # base, full, best, exbest
-    parser.add_argument('--prompt_mode', type=str, default='base')
+    parser.add_argument('--prompt_mode', type=str, default='best')
     # base, full
     parser.add_argument('--train_mode', type=str, default='base')
     # model
@@ -30,7 +30,7 @@ def init_args():
     parser.add_argument('--pdrop', type=float, default=0.2)
     # gpt2, gpt2-medium, gpt2-large, gpt2-xl
     # gpt-neo-125m, gpt-neo-350m, gpt-neo-1.3B, gpt-neo-2.7B
-    parser.add_argument('--model', type=str, default='gpt2')
+    parser.add_argument('--model', type=str, default='gpt2-medium')
     parser.add_argument('--load_ckpt', type=helper.str2bool, default=False)
     # bert-large-cased
     parser.add_argument('--lm', type=str, default='bert-large-cased')
@@ -39,7 +39,7 @@ def init_args():
     parser.add_argument('--accumulate_grad_batches', type=int, default=1)
     parser.add_argument('--val_batch_size', type=int, default=32)  # for valiation
     parser.add_argument('--test_batch_size', type=int, default=1)  # for test
-    parser.add_argument('--max_epochs', type=int, default=1)  # -1 to enable infinite training
+    parser.add_argument('--max_epochs', type=int, default=-1)  # -1 to enable infinite training
     parser.add_argument('--num_workers', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     parser.add_argument('--weight_decay', type=float, default=0.001)
