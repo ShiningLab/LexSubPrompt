@@ -26,7 +26,7 @@ class LSP(object):
         # setup device
         self.config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         # get trainer
-        self.trainer = trainers.LSPTrainer(config)
+        self.trainer = trainers.LSPTrainer(self.config)
         # setup random seed
         seed_everything(self.config.seed, workers=True)
         # enable tokenizer multi-processing
