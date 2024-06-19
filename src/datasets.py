@@ -6,7 +6,7 @@ __email__ = 'mrshininnnnn@gmail.com'
 
 # dependency
 # built-in
-import copy, random, itertools
+import copy, random
 # public
 from transformers import AutoTokenizer
 from torch.utils import data as torch_data
@@ -33,15 +33,11 @@ class LSPDataset(torch_data.Dataset):
 
     def get_data(self):
         data_dict = helper.load_pickle(self.config.DATA_PKL)
-        # train + val
-        if self.config.train_mode == 'full':
-            match self.mode:
-                case 'train':
-                    train_tuple = data_dict['train']
-                    val_tuple = data_dict['val']
-                    self.data_tuple = tuple(i + j for i, j in zip(train_tuple, val_tuple))
-                case _:
-                    self.data_tuple = data_dict['test']
+        if self.config.train_mode == 'full' and self.mode == 'train':
+            # train + val
+            train_tuple = data_dict['train']
+            val_tuple = data_dict['val']
+            self.data_tuple = tuple(i + j for i, j in zip(train_tuple, val_tuple))
         else:
             self.data_tuple = data_dict[self.mode]
         self.data_size = len(self.data_tuple[0])

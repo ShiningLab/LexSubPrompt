@@ -40,7 +40,7 @@ class Evaluator(object):
             self.info += '{}:{:.4f}|'.format(k, v)
 
 
-def get_metrics(gold: list[list[str]], predicted: list[list[str]]) -> (float, float, float):
+def get_metrics(gold: list[list[str]], predicted: list[list[str]]):
     p1, p3, r10 = [], [], []
     for g, p in zip(gold, predicted):
         p1.append(precision_at_k(g, p, 1))

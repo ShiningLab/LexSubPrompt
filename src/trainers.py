@@ -144,16 +144,6 @@ class LSPTrainer(object):
         outputs_dict = dict()
         for k in outputs_list[0]:
             outputs_dict[k] = [d[k] for d in outputs_list]
-        
-        # result_path = './res/results/lsp/genesis/wswitch/best/base/gpt2/'
-        # job = 'lsp-genesis-wswitch-best-base-gpt2-0'
-        # outputs_dict = pd.read_csv(
-        #     os.path.join(result_path, f'{job}.csv')
-        #     , delimiter=','
-        #     )
-        # outputs_dict['subs'] = [s.split(',') for s in outputs_dict.subs]
-        # outputs_dict['subs_'] = [s.split(',') for s in outputs_dict.subs_]
-
         # postprocessing
         self.logger.info("Start postprocessing...")
         outputs_dict['clean_subs_'] = helper.postprocess(
