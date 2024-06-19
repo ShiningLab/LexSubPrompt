@@ -44,7 +44,7 @@ class LSP(L.LightningModule):
             , max_new_tokens=self.config.max_new_tokens
             , num_beams=num_beams
             , num_beam_groups=1
-            , early_stopping=True
+            , early_stopping=False if num_beams==1 else True
             , num_return_sequences=num_return_sequences
             , bad_words_ids = bad_words_ids
             , pad_token_id=self.tokenizer.eos_token_id
