@@ -12,7 +12,7 @@ data
 ```
 
 ## Downloads
-You can download the datasets from the Google Drive [PromptSub Datasets](https://drive.google.com/drive/folders/1r37uvvrKjbWNxbZvvO8kDpd1dm-S2qG1?usp=sharing).
+You can download the datasets from the Google Drive [PromptSub Datasets](https://drive.google.com/file/d/1LfeOM1ObEIbwRsVdaWIZVLRrPNAr9ZHH/view?usp=sharing).
 
 ## Authors
 * **Ning Shi** - mrshininnnnn@gmail.com
