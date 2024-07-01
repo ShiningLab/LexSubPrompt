@@ -1,7 +1,7 @@
 # PromptSub
-This repository is for the paper Lexical Substitution as Causal Language Modeling. In *Proceedings of the 13th Joint Conference on Lexical and Computational Semantics (\*SEM 2024)*, Mexico City, Mexico. Association for Computational Linguistics.
+This repository is for the paper Lexical Substitution as Causal Language Modeling. In *Proceedings of the 13th Joint Conference on Lexical and Computational Semantics (\*SEM 2024)*, pages 120–132, Mexico City, Mexico. Association for Computational Linguistics.
 
-[[Paper](https://github.com/ShiningLab/PromptSub/blob/main/assets/paper.pdf)] [[Poster](https://github.com/ShiningLab/PromptSub/blob/main/assets/poster.pdf)] [[Slides](https://github.com/ShiningLab/PromptSub/blob/main/assets/slides.pdf)]
+[[Paper](https://aclanthology.org/2024.starsem-1.10/)] [[Poster](https://github.com/ShiningLab/PromptSub/blob/main/assets/poster.pdf)] [[Slides](https://github.com/ShiningLab/PromptSub/blob/main/assets/slides.pdf)]
 
 ## Dependencies
 + python >= 3.11.9
@@ -14,7 +14,7 @@ This repository is for the paper Lexical Substitution as Causal Language Modelin
 
 ## Setups
 It is recommended to use a virtual environment to manage dependencies. Follow the steps below to set up the environment and install the required packages:
-```sh
+```
 $ cd PromptSub
 $ pip install --upgrade pip
 $ pip install -r requirements.txt
@@ -66,5 +66,20 @@ Total estimated model params size (MB): 497
 
 ## BibTex
 ```
-TODO
+@inproceedings{shi-etal-2024-lexical,
+    title = "Lexical Substitution as Causal Language Modeling",
+    author = "Shi, Ning  and
+      Hauer, Bradley  and
+      Kondrak, Grzegorz",
+    editor = "Bollegala, Danushka  and
+      Shwartz, Vered",
+    booktitle = "Proceedings of the 13th Joint Conference on Lexical and Computational Semantics (*SEM 2024)",
+    month = jun,
+    year = "2024",
+    address = "Mexico City, Mexico",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.starsem-1.10",
+    pages = "120--132",
+    abstract = "Causal language models such as the GPT series have achieved significant success across various domains. However, their application to the lexical substitution task (LST) remains largely unexplored due to inherent limitations in autoregressive decoding. Our work is motivated by our observation that existing LST approaches tend to suffer from a misalignment between the pre-training objectives of the language models that they employ, and their subsequent fine-tuning and application for substitute generation. We introduce PromptSub, the first system to use causal language modeling (CLM) for LST. Through prompt-aware fine-tuning, PromptSub not only enriches the given context with additional knowledge, but also leverages the unidirectional nature of autoregressive decoding. PromptSub consistently outperforms GeneSis, the best previously published supervised LST method. Further analysis demonstrates the potential of PromptSub to further benefit from increased model capacity, expanded data resources, and retrieval of external knowledge. By framing LST within the paradigm of CLM, our approach indicates the versatility of general CLM-based systems, such as ChatGPT, in catering to specialized tasks, including LST.",
+}
 ```
