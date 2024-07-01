@@ -14,7 +14,7 @@ This repository is for the paper Lexical Substitution as Causal Language Modelin
 
 ## Setups
 It is recommended to use a virtual environment to manage dependencies. Follow the steps below to set up the environment and install the required packages:
-```
+```sh
 $ cd PromptSub
 $ pip install --upgrade pip
 $ pip install -r requirements.txt
@@ -22,14 +22,14 @@ $ pip install -r requirements.txt
 
 ## Run
 Before training, review and modify the training configurations in config.py as needed:
-```
+```sh
 $ vim config.py
 $ python main.py
 ```
 
 ## Outputs
 If all goes well, you should see progress similar to the output below:
-```
+```sh
 $ python main.py
 2024-06-19 18:58:39 | Logger initialized.
 GPU available: True (cuda), used: True
@@ -65,7 +65,7 @@ Total estimated model params size (MB): 497
 * **Ning Shi** - mrshininnnnn@gmail.com
 
 ## BibTex
-```
+```bibtex
 @inproceedings{shi-etal-2024-lexical,
     title = "Lexical Substitution as Causal Language Modeling",
     author = "Shi, Ning  and

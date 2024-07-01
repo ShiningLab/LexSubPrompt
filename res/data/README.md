@@ -18,8 +18,7 @@ You can download the datasets from the Google Drive [PromptSub Datasets](https:/
 * **Ning Shi** - mrshininnnnn@gmail.com
 
 ## BibTex
-
-```
+```bibtex
 @inproceedings{lacerra-etal-2021-genesis,
     title = "{G}ene{S}is: {A} {G}enerative {A}pproach to {S}ubstitutes in {C}ontext",
     author = "Lacerra, Caterina  and

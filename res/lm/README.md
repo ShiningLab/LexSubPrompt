@@ -14,7 +14,7 @@ res/lm
 
 ## Downloads
 You can download the models from HuggingFace as follows:
-```
+```sh
 # Make sure you have git-lfs installed (https://git-lfs.com)
 $ git lfs install
 
@@ -29,8 +29,7 @@ $ git clone https://huggingface.co/google-bert/bert-large-cased
 * **Ning Shi** - mrshininnnnn@gmail.com
 
 ## BibTex
-
-```
+```bibtex
 @article{radford2019language,
   title={Language models are unsupervised multitask learners},
   author={Radford, Alec and Wu, Jeffrey and Child, Rewon and Luan, David and Amodei, Dario and Sutskever, Ilya and others},
